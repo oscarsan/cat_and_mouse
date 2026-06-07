@@ -5,6 +5,13 @@ const overlayTitle = document.getElementById("overlayTitle");
 const startButton = document.getElementById("startButton");
 const levelSelect = document.getElementById("levelSelect");
 const cheeseCount = document.getElementById("cheeseCount");
+const shopButton = document.getElementById("shopButton");
+const shopPanel = document.getElementById("shopPanel");
+const shopCloseButton = document.getElementById("shopCloseButton");
+const shopPreview = document.getElementById("shopPreview");
+const shopItems = document.getElementById("shopItems");
+const shopCheeseCount = document.getElementById("shopCheeseCount");
+const shopCtx = shopPreview ? shopPreview.getContext("2d") : null;
 
 const VIEW = { width: 960, height: 540 };
 const GROUND_Y = 424;
@@ -34,6 +41,13 @@ const COBRA_STRIKE_SPEED = 1.65;
 const BANANA_SLIP_DISTANCE = 54;
 const BANANA_SPIN_TIME = 1.2;
 const PROGRESS_STORAGE_KEY = "catAndMouseProgressV1";
+const HAT_PRICE = 5;
+const SHOP_HATS = [
+  { id: "cap", name: "LIPPI" },
+  { id: "cowboy", name: "COWBOY" },
+  { id: "pan", name: "PANNU" },
+  { id: "egg", name: "MUNA" },
+];
 
 const LEVELS = [
   {
@@ -253,6 +267,8 @@ function getDefaultProgress() {
     completedLevels: Array(LEVELS.length).fill(false),
     cheeseRunLevels: Array(LEVELS.length).fill(false),
     cheeseCount: 0,
+    ownedHats: [],
+    equippedHat: null,
   };
 }
 
@@ -262,10 +278,19 @@ function normalizeProgress(saved) {
     return defaults;
   }
 
+  const ownedHats = Array.isArray(saved.ownedHats)
+    ? saved.ownedHats.filter((hatId) => SHOP_HATS.some((hat) => hat.id === hatId))
+    : [];
+  const equippedHat = SHOP_HATS.some((hat) => hat.id === saved.equippedHat) && ownedHats.includes(saved.equippedHat)
+    ? saved.equippedHat
+    : null;
+
   return {
     completedLevels: defaults.completedLevels.map((_, index) => Boolean(saved.completedLevels && saved.completedLevels[index])),
     cheeseRunLevels: defaults.cheeseRunLevels.map((_, index) => Boolean(saved.cheeseRunLevels && saved.cheeseRunLevels[index])),
     cheeseCount: Math.max(0, Math.floor(Number(saved.cheeseCount) || 0)),
+    ownedHats,
+    equippedHat,
   };
 }
 
@@ -295,10 +320,17 @@ function updateOverlayProgress() {
     cheeseCount.textContent = `${progress.cheeseCount}/10`;
   }
 
+  if (shopCheeseCount) {
+    shopCheeseCount.textContent = String(progress.cheeseCount);
+  }
+
   levelButtons.forEach((button, index) => {
     button.classList.toggle("is-complete", Boolean(progress.completedLevels[index]));
     button.classList.toggle("is-selected", index === selectedStartLevel);
   });
+
+  renderShopItems();
+  drawShopPreview();
 }
 
 function buildLevelSelect() {
@@ -319,6 +351,166 @@ function buildLevelSelect() {
   });
 
   updateOverlayProgress();
+}
+
+function isHatOwned(hatId) {
+  return progress.ownedHats.includes(hatId);
+}
+
+function openShop() {
+  if (!shopPanel) {
+    return;
+  }
+
+  updateOverlayProgress();
+  shopPanel.classList.remove("is-hidden");
+}
+
+function closeShop() {
+  if (shopPanel) {
+    shopPanel.classList.add("is-hidden");
+  }
+}
+
+function buyOrEquipHat(hatId) {
+  const hat = SHOP_HATS.find((item) => item.id === hatId);
+  if (!hat) {
+    return;
+  }
+
+  if (isHatOwned(hatId)) {
+    progress.equippedHat = hatId;
+    saveProgress();
+    updateOverlayProgress();
+    return;
+  }
+
+  if (progress.cheeseCount < HAT_PRICE) {
+    return;
+  }
+
+  progress.cheeseCount -= HAT_PRICE;
+  progress.ownedHats.push(hatId);
+  progress.equippedHat = hatId;
+  saveProgress();
+  updateOverlayProgress();
+}
+
+function renderShopItems() {
+  if (!shopItems) {
+    return;
+  }
+
+  shopItems.innerHTML = "";
+  SHOP_HATS.forEach((hat) => {
+    const owned = isHatOwned(hat.id);
+    const equipped = progress.equippedHat === hat.id;
+    const canBuy = progress.cheeseCount >= HAT_PRICE;
+    const item = document.createElement("button");
+    item.className = "shop-item";
+    item.type = "button";
+    item.disabled = !owned && !canBuy;
+    item.classList.toggle("is-equipped", equipped);
+    item.addEventListener("click", () => buyOrEquipHat(hat.id));
+
+    const icon = document.createElement("canvas");
+    icon.className = "hat-canvas";
+    icon.width = 80;
+    icon.height = 58;
+    drawHatIcon(icon, hat.id);
+
+    const name = document.createElement("span");
+    name.className = "shop-item-name";
+    name.textContent = hat.name;
+
+    const status = document.createElement("span");
+    status.className = "shop-item-status";
+    status.textContent = equipped ? "KAYTOSSA" : owned ? "PUE" : `${HAT_PRICE} JUUSTOA`;
+
+    item.appendChild(icon);
+    item.appendChild(name);
+    item.appendChild(status);
+    shopItems.appendChild(item);
+  });
+}
+
+function drawHatIcon(canvasElement, hatId) {
+  const target = canvasElement.getContext("2d");
+  target.clearRect(0, 0, canvasElement.width, canvasElement.height);
+  target.save();
+  target.translate(40, 32);
+  drawHatShape(target, hatId, 0, 0, 1.15);
+  target.restore();
+}
+
+function drawShopPreview() {
+  if (!shopCtx || !shopPreview) {
+    return;
+  }
+
+  shopCtx.clearRect(0, 0, shopPreview.width, shopPreview.height);
+
+  const gradient = shopCtx.createLinearGradient(0, 0, 0, shopPreview.height);
+  gradient.addColorStop(0, "#bfeaf4");
+  gradient.addColorStop(1, "#7fbd67");
+  shopCtx.fillStyle = gradient;
+  shopCtx.fillRect(0, 0, shopPreview.width, shopPreview.height);
+
+  shopCtx.fillStyle = "rgba(42, 31, 20, 0.16)";
+  shopCtx.beginPath();
+  shopCtx.ellipse(132, 129, 68, 11, 0, 0, Math.PI * 2);
+  shopCtx.fill();
+
+  shopCtx.save();
+  shopCtx.translate(128, 84);
+  shopCtx.scale(1.55, 1.55);
+  drawShopMouse(shopCtx);
+  if (progress.equippedHat) {
+    drawHatShape(shopCtx, progress.equippedHat, 25, -7, 0.7);
+  }
+  shopCtx.restore();
+}
+
+function drawShopMouse(target) {
+  target.strokeStyle = "#7d8386";
+  target.lineWidth = 4;
+  target.lineCap = "round";
+  target.beginPath();
+  target.moveTo(-25, 24);
+  target.quadraticCurveTo(-47, 17, -54, 34);
+  target.stroke();
+
+  target.fillStyle = "#858b8e";
+  target.beginPath();
+  target.ellipse(0, 18, 29, 17, 0, 0, Math.PI * 2);
+  target.fill();
+
+  target.fillStyle = "#9aa0a3";
+  target.beginPath();
+  target.ellipse(24, 12, 18, 14, -0.12, 0, Math.PI * 2);
+  target.fill();
+
+  target.fillStyle = "#d9a8af";
+  target.beginPath();
+  target.arc(20, 0, 10, 0, Math.PI * 2);
+  target.arc(31, 3, 9, 0, Math.PI * 2);
+  target.fill();
+
+  target.fillStyle = "#9aa0a3";
+  target.beginPath();
+  target.arc(20, 0, 6, 0, Math.PI * 2);
+  target.arc(31, 3, 5, 0, Math.PI * 2);
+  target.fill();
+
+  target.fillStyle = "#111b20";
+  target.beginPath();
+  target.arc(32, 9, 2.8, 0, Math.PI * 2);
+  target.fill();
+
+  target.fillStyle = "#e3a9b1";
+  target.beginPath();
+  target.ellipse(42, 16, 4.5, 3.2, 0, 0, Math.PI * 2);
+  target.fill();
 }
 
 function completeLevel(levelIndex) {
@@ -563,6 +755,7 @@ function resetAfterLife() {
 
 function startGame() {
   resumeAudio();
+  closeShop();
   resetRun(selectedStartLevel);
   state = "playing";
   overlay.classList.add("is-hidden");
@@ -2590,6 +2783,121 @@ function drawDesertVeil(cx, cy, scale) {
   ctx.restore();
 }
 
+function drawEquippedMouseHat(cx, cy, size) {
+  if (!progress.equippedHat) {
+    return;
+  }
+
+  drawHatShape(ctx, progress.equippedHat, cx, cy, size);
+}
+
+function drawHatShape(target, hatId, cx, cy, size) {
+  target.save();
+  target.translate(cx, cy);
+  target.scale(size, size);
+  target.lineCap = "round";
+  target.lineJoin = "round";
+
+  if (hatId === "cap") {
+    target.fillStyle = "#2c75d6";
+    target.strokeStyle = "#173f7c";
+    target.lineWidth = 3;
+    target.beginPath();
+    target.moveTo(-23, 2);
+    target.quadraticCurveTo(-14, -21, 14, -16);
+    target.quadraticCurveTo(28, -10, 24, 5);
+    target.quadraticCurveTo(1, 8, -23, 2);
+    target.fill();
+    target.stroke();
+
+    target.fillStyle = "#f5d34d";
+    target.beginPath();
+    target.ellipse(27, 4, 18, 5, -0.12, 0, Math.PI * 2);
+    target.fill();
+    target.stroke();
+
+    target.strokeStyle = "rgba(255, 255, 255, 0.45)";
+    target.lineWidth = 2;
+    target.beginPath();
+    target.moveTo(-3, -16);
+    target.quadraticCurveTo(1, -7, 2, 5);
+    target.stroke();
+  } else if (hatId === "cowboy") {
+    target.fillStyle = "#8a5428";
+    target.strokeStyle = "#4f2e18";
+    target.lineWidth = 3;
+    target.beginPath();
+    target.ellipse(0, 4, 36, 8, 0, 0, Math.PI * 2);
+    target.fill();
+    target.stroke();
+
+    target.fillStyle = "#a86934";
+    target.beginPath();
+    target.moveTo(-18, 2);
+    target.quadraticCurveTo(-16, -28, 0, -29);
+    target.quadraticCurveTo(18, -28, 20, 2);
+    target.quadraticCurveTo(3, 9, -18, 2);
+    target.fill();
+    target.stroke();
+
+    target.strokeStyle = "#f0c15a";
+    target.lineWidth = 4;
+    target.beginPath();
+    target.moveTo(-16, -4);
+    target.quadraticCurveTo(1, 1, 19, -5);
+    target.stroke();
+  } else if (hatId === "pan") {
+    target.fillStyle = "#565f66";
+    target.strokeStyle = "#242a2e";
+    target.lineWidth = 4;
+    target.beginPath();
+    target.ellipse(-2, 0, 29, 12, -0.08, 0, Math.PI * 2);
+    target.fill();
+    target.stroke();
+
+    target.fillStyle = "#7c878f";
+    target.beginPath();
+    target.ellipse(-5, -2, 19, 6, -0.08, 0, Math.PI * 2);
+    target.fill();
+
+    target.strokeStyle = "#242a2e";
+    target.lineWidth = 8;
+    target.beginPath();
+    target.moveTo(24, -2);
+    target.lineTo(54, -12);
+    target.stroke();
+
+    target.strokeStyle = "#8c969e";
+    target.lineWidth = 3;
+    target.beginPath();
+    target.moveTo(26, -4);
+    target.lineTo(50, -12);
+    target.stroke();
+  } else if (hatId === "egg") {
+    target.fillStyle = "#fff7df";
+    target.strokeStyle = "#c9b884";
+    target.lineWidth = 3;
+    target.beginPath();
+    target.moveTo(-25, 7);
+    target.lineTo(-18, -8);
+    target.lineTo(-9, 0);
+    target.lineTo(1, -16);
+    target.lineTo(11, -1);
+    target.lineTo(21, -11);
+    target.lineTo(29, 6);
+    target.quadraticCurveTo(5, 16, -25, 7);
+    target.fill();
+    target.stroke();
+
+    target.fillStyle = "#f5c64a";
+    target.beginPath();
+    target.arc(3, 0, 8, 0, Math.PI * 2);
+    target.fill();
+  }
+
+  target.restore();
+}
+
 function drawRallyMouse(x, y, facing) {
   ctx.save();
   ctx.translate(x, y);
@@ -2703,6 +3011,8 @@ function drawMouseDriver() {
   ctx.beginPath();
   ctx.ellipse(22, 5, 3.8, 2.6, 0, 0, Math.PI * 2);
   ctx.fill();
+
+  drawEquippedMouseHat(8, -11, 0.46);
 }
 
 function drawCatDriver(index) {
@@ -3163,6 +3473,8 @@ function drawMouse() {
     drawDesertVeil(26, 5, 0.74);
   }
 
+  drawEquippedMouseHat(26, -9, 0.64);
+
   ctx.restore();
 
   if (state === "captured" && captureStyle === "cage") {
@@ -3613,6 +3925,12 @@ window.addEventListener("keydown", (event) => {
   }
 });
 startButton.addEventListener("click", startGame);
+if (shopButton) {
+  shopButton.addEventListener("click", openShop);
+}
+if (shopCloseButton) {
+  shopCloseButton.addEventListener("click", closeShop);
+}
 
 resizeCanvas();
 buildLevelSelect();

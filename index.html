@@ -17,6 +17,22 @@
           <span id="cheeseCount">0/10</span>
         </div>
         <button id="startButton" class="start-button" type="button">START</button>
+        <button id="shopButton" class="shop-button" type="button" aria-label="Kauppa">
+          <span class="shop-image" aria-hidden="true">
+            <span class="shop-awning"></span>
+            <span class="shop-window"></span>
+            <span class="shop-door"></span>
+          </span>
+        </button>
+        <div id="shopPanel" class="shop-panel is-hidden" role="dialog" aria-label="Hiiren kauppa">
+          <button id="shopCloseButton" class="shop-close-button" type="button" aria-label="Sulje kauppa">X</button>
+          <div class="shop-cheese">
+            <span class="cheese-mark" aria-hidden="true"></span>
+            <span id="shopCheeseCount">0</span>
+          </div>
+          <canvas id="shopPreview" class="shop-preview" width="260" height="170" aria-label="Hiiri"></canvas>
+          <div id="shopItems" class="shop-items" aria-label="Hatut"></div>
+        </div>
       </div>
     </main>
     <script src="game.js"></script>
