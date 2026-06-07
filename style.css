@@ -1,0 +1,158 @@
+:root {
+  color-scheme: light;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: #8ccde5;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+}
+
+body {
+  display: grid;
+  place-items: center;
+  background:
+    linear-gradient(180deg, #8ed8f2 0%, #d7f3fb 48%, #8cbf61 48%, #6e9d42 100%);
+}
+
+.game-shell {
+  position: relative;
+  width: min(100vw, 1280px);
+  height: min(100vh, 720px);
+  min-height: 360px;
+  background: #8ed8f2;
+  overflow: hidden;
+}
+
+#game {
+  display: block;
+  width: 100%;
+  height: 100%;
+  cursor: crosshair;
+  touch-action: none;
+}
+
+.overlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  gap: 18px;
+  align-content: center;
+  background: linear-gradient(180deg, rgb(39 75 92 / 0.28), rgb(24 44 38 / 0.35));
+  transition: opacity 160ms ease, visibility 160ms ease;
+}
+
+.overlay.is-hidden {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.overlay-title {
+  color: #ffffff;
+  font-weight: 800;
+  font-size: clamp(34px, 6vw, 72px);
+  line-height: 1;
+  text-shadow: 0 4px 14px rgb(16 35 42 / 0.35);
+  text-align: center;
+}
+
+.level-select {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  min-height: 52px;
+}
+
+.level-dot {
+  appearance: none;
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border: 3px solid rgb(255 255 255 / 0.7);
+  border-radius: 50%;
+  background: #2f8f48;
+  color: #ffffff;
+  box-shadow: inset 0 -6px 0 rgb(8 54 28 / 0.18), 0 8px 18px rgb(10 45 28 / 0.22);
+  cursor: pointer;
+  font-size: 18px;
+  font-weight: 900;
+  line-height: 1;
+  padding: 0;
+}
+
+.level-dot.is-complete {
+  background: #35d461;
+  box-shadow:
+    inset 0 -6px 0 rgb(12 92 40 / 0.2),
+    0 0 0 5px rgb(95 244 126 / 0.2),
+    0 0 24px rgb(90 255 132 / 0.72);
+}
+
+.level-dot.is-selected {
+  outline: 4px solid #f8e46d;
+  outline-offset: 3px;
+}
+
+.level-dot:focus-visible {
+  outline: 4px solid #f8e46d;
+  outline-offset: 3px;
+}
+
+.cheese-bank {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 34px;
+  padding: 6px 13px;
+  border-radius: 8px;
+  background: rgb(27 49 43 / 0.38);
+  color: #ffffff;
+  font-size: 19px;
+  font-weight: 900;
+  text-shadow: 0 2px 8px rgb(11 30 28 / 0.25);
+}
+
+.cheese-mark {
+  width: 25px;
+  height: 19px;
+  clip-path: polygon(0 78%, 100% 50%, 26% 0);
+  background: #f2ce3f;
+  box-shadow: inset 0 0 0 3px rgb(159 111 24 / 0.28);
+}
+
+.start-button {
+  appearance: none;
+  border: 0;
+  border-radius: 8px;
+  min-width: 172px;
+  min-height: 62px;
+  padding: 0 34px;
+  background: #21b34b;
+  color: #ffffff;
+  box-shadow: 0 8px 0 #147b33, 0 18px 34px rgb(11 47 28 / 0.28);
+  cursor: pointer;
+  font-size: 24px;
+  font-weight: 900;
+  letter-spacing: 0;
+}
+
+.start-button:active {
+  transform: translateY(5px);
+  box-shadow: 0 3px 0 #147b33, 0 10px 24px rgb(11 47 28 / 0.24);
+}
+
+.start-button:focus-visible {
+  outline: 4px solid #f8e46d;
+  outline-offset: 5px;
+}
