@@ -52,7 +52,8 @@ const SPACE_MONSTER_SPEED = 305;
 const SPACE_MONSTER_CATCH_DISTANCE = 58;
 const SPACE_MONSTER_PULI_INTERVAL = 1.15;
 const PROGRESS_STORAGE_KEY = "catAndMouseProgressV1";
-const START_CHEESE = 30;
+const START_CHEESE = 0;
+const OLD_TEST_CHEESE_GRANT = 30;
 const SHOP_PRICE = 5;
 const MORE_SHOP_UNLOCK_CHEESE = 10;
 const BASE_SHOP_ITEMS = [
@@ -330,6 +331,7 @@ function getDefaultProgress() {
     completedLevels: Array(LEVELS.length).fill(false),
     cheeseRunLevels: Array(LEVELS.length).fill(false),
     cheeseCount: START_CHEESE,
+    testCheeseRemoved: true,
     ownedItems: [],
     equippedItems: {
       hat: null,
@@ -365,11 +367,16 @@ function normalizeProgress(saved) {
       equippedItems[category] = null;
     }
   });
+  const savedCheeseCount = Math.max(0, Math.floor(Number(saved.cheeseCount) || 0));
+  const cheeseCount = saved.testCheeseRemoved
+    ? savedCheeseCount
+    : Math.max(0, savedCheeseCount - OLD_TEST_CHEESE_GRANT);
 
   return {
     completedLevels: defaults.completedLevels.map((_, index) => Boolean(saved.completedLevels && saved.completedLevels[index])),
     cheeseRunLevels: defaults.cheeseRunLevels.map((_, index) => Boolean(saved.cheeseRunLevels && saved.cheeseRunLevels[index])),
-    cheeseCount: Math.max(START_CHEESE, Math.floor(Number(saved.cheeseCount) || 0)),
+    cheeseCount,
+    testCheeseRemoved: true,
     ownedItems,
     equippedItems,
   };
@@ -398,7 +405,7 @@ function setSelectedStartLevel(levelIndex) {
 
 function updateOverlayProgress() {
   if (cheeseCount) {
-    cheeseCount.textContent = `${progress.cheeseCount}/10`;
+    cheeseCount.textContent = String(progress.cheeseCount);
   }
 
   if (shopCheeseCount) {
@@ -643,16 +650,8 @@ function completeLevel(levelIndex) {
     changed = true;
   }
 
-  if (!progress.cheeseRunLevels[levelIndex]) {
-    progress.cheeseRunLevels[levelIndex] = true;
-    changed = true;
-  }
-
-  if (progress.cheeseRunLevels.every(Boolean)) {
-    progress.cheeseCount += 1;
-    progress.cheeseRunLevels = Array(LEVELS.length).fill(false);
-    changed = true;
-  }
+  progress.cheeseCount += 1;
+  changed = true;
 
   if (changed) {
     saveProgress();
