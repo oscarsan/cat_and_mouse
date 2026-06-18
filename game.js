@@ -48,7 +48,7 @@ const SPACE_LASER_SPEED = 360;
 const SPACE_LASER_INTERVAL = 2.45;
 const SPACE_MONSTER_WAKE_DISTANCE = 360;
 const SPACE_MONSTER_FORGET_DISTANCE = 720;
-const SPACE_MONSTER_SPEED = 155;
+const SPACE_MONSTER_SPEED = 305;
 const SPACE_MONSTER_CATCH_DISTANCE = 58;
 const SPACE_MONSTER_PULI_INTERVAL = 1.15;
 const PROGRESS_STORAGE_KEY = "catAndMouseProgressV1";
@@ -1084,13 +1084,14 @@ function playSpacePuli() {
   }
 
   const now = audioContext.currentTime;
-  if (now - lastSpacePuliAt < 0.45) {
+  if (now - lastSpacePuliAt < 0.28) {
     return;
   }
   lastSpacePuliAt = now;
 
-  playPuliSyllable(now, 0, 310);
-  playPuliSyllable(now, 0.18, 240);
+  playPuliSyllable(now, 0, 360);
+  playPuliSyllable(now, 0.16, 260);
+  playPuliSyllable(now, 0.34, 320);
 }
 
 function playPuliSyllable(now, delay, baseFreq) {
@@ -1105,18 +1106,50 @@ function playPuliSyllable(now, delay, baseFreq) {
   oscillator.frequency.exponentialRampToValueAtTime(baseFreq * 0.72, start + 0.18);
 
   filter.type = "bandpass";
-  filter.frequency.setValueAtTime(620, start);
-  filter.Q.setValueAtTime(5, start);
+  filter.frequency.setValueAtTime(780, start);
+  filter.Q.setValueAtTime(4, start);
 
   gain.gain.setValueAtTime(0.0001, start);
-  gain.gain.exponentialRampToValueAtTime(0.12, start + 0.025);
-  gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.22);
+  gain.gain.exponentialRampToValueAtTime(0.2, start + 0.025);
+  gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.24);
 
   oscillator.connect(filter);
   filter.connect(gain);
   gain.connect(audioContext.destination);
   oscillator.start(start);
-  oscillator.stop(start + 0.24);
+  oscillator.stop(start + 0.26);
+}
+
+function playLaserShot(index) {
+  if (!audioContext) {
+    resumeAudio();
+  }
+
+  if (!audioContext || audioContext.state !== "running") {
+    return;
+  }
+
+  const now = audioContext.currentTime;
+  const oscillator = audioContext.createOscillator();
+  const gain = audioContext.createGain();
+  const filter = audioContext.createBiquadFilter();
+
+  oscillator.type = "sawtooth";
+  oscillator.frequency.setValueAtTime(1180 + index * 120, now);
+  oscillator.frequency.exponentialRampToValueAtTime(360 + index * 45, now + 0.16);
+
+  filter.type = "lowpass";
+  filter.frequency.setValueAtTime(2600, now);
+
+  gain.gain.setValueAtTime(0.0001, now);
+  gain.gain.exponentialRampToValueAtTime(0.13, now + 0.012);
+  gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.18);
+
+  oscillator.connect(filter);
+  filter.connect(gain);
+  gain.connect(audioContext.destination);
+  oscillator.start(now);
+  oscillator.stop(now + 0.2);
 }
 
 function playMeowSyllable(now, delay, voice) {
@@ -1378,6 +1411,12 @@ function updateSpaceCats(dt) {
     cat.heldAtGate = false;
     cat.blockedByLog = false;
 
+    cat.meowTimer -= dt;
+    if (cat.meowTimer <= 0) {
+      playCatMeow(index);
+      cat.meowTimer += MEOW_INTERVAL;
+    }
+
     cat.laserTimer -= dt;
     if (cat.laserTimer <= 0 && player.x > cat.x + 95 && state === "playing") {
       fireCatLaser(cat, index);
@@ -1400,6 +1439,7 @@ function fireCatLaser(cat, index) {
     life: 2.4,
     phase: index * 0.8,
   });
+  playLaserShot(index);
 }
 
 function updateCatLasers(dt) {
