@@ -46,6 +46,11 @@ const SPACE_MIN_Y = 74;
 const SPACE_MAX_Y = 354;
 const SPACE_LASER_SPEED = 360;
 const SPACE_LASER_INTERVAL = 2.45;
+const SPACE_MONSTER_WAKE_DISTANCE = 360;
+const SPACE_MONSTER_FORGET_DISTANCE = 720;
+const SPACE_MONSTER_SPEED = 155;
+const SPACE_MONSTER_CATCH_DISTANCE = 58;
+const SPACE_MONSTER_PULI_INTERVAL = 1.15;
 const PROGRESS_STORAGE_KEY = "catAndMouseProgressV1";
 const START_CHEESE = 30;
 const SHOP_PRICE = 5;
@@ -266,6 +271,7 @@ let levelMessageTimer = 0;
 let audioContext = null;
 let lastBoingAt = 0;
 let lastBearGrowlAt = 0;
+let lastSpacePuliAt = 0;
 
 const pointer = {
   active: false,
@@ -302,6 +308,7 @@ let octopuses = [];
 let cobras = [];
 let bananas = [];
 let catLasers = [];
+let spaceMonsters = [];
 let finalCave = null;
 
 const cheese = {
@@ -748,6 +755,31 @@ function createBanana(cave, index) {
   };
 }
 
+function getSpaceMonsterHome(cave) {
+  const centerX = cave.x + cave.width / 2;
+  const centerY = 292;
+  const radius = 94;
+  return {
+    x: centerX,
+    y: centerY - radius - 14,
+  };
+}
+
+function createSpaceMonster(cave, index) {
+  const home = getSpaceMonsterHome(cave);
+  return {
+    cave,
+    x: home.x,
+    y: home.y,
+    homeX: home.x,
+    homeY: home.y,
+    state: "sleeping",
+    phase: index * 0.7,
+    puliTimer: 0,
+    facing: -1,
+  };
+}
+
 function cloneLevelItems(items, kind) {
   return items.map((item) => ({ ...item, kind }));
 }
@@ -762,6 +794,7 @@ function applyLevel(levelIndex) {
   octopuses = caves.filter((cave) => cave.octopus).map(createOctopus);
   cobras = caves.filter((cave) => cave.cobra).map(createCobra);
   bananas = caves.filter((cave) => cave.banana).map(createBanana);
+  spaceMonsters = caves.filter((cave) => cave.spaceMonster).map(createSpaceMonster);
   finalCave = caves.find((cave) => cave.final) || caves[caves.length - 1];
   cheese.x = finalCave.x + finalCave.width - 160;
   cheese.y = level.theme === "space" ? 205 : GROUND_Y - 28;
@@ -871,6 +904,14 @@ function resetAfterLife() {
   bananas.forEach((banana) => {
     banana.phase = 0;
     banana.used = false;
+  });
+  spaceMonsters.forEach((monster) => {
+    monster.x = monster.homeX;
+    monster.y = monster.homeY;
+    monster.state = "sleeping";
+    monster.phase = 0;
+    monster.puliTimer = 0;
+    monster.facing = -1;
   });
   pointer.viewX = 180;
   pointer.viewY = isSpaceLevel() ? 260 : pointer.viewY;
@@ -1031,6 +1072,51 @@ function playBearGrowl() {
   gain.connect(audioContext.destination);
   oscillator.start(now);
   oscillator.stop(now + 0.65);
+}
+
+function playSpacePuli() {
+  if (!audioContext) {
+    resumeAudio();
+  }
+
+  if (!audioContext || audioContext.state !== "running") {
+    return;
+  }
+
+  const now = audioContext.currentTime;
+  if (now - lastSpacePuliAt < 0.45) {
+    return;
+  }
+  lastSpacePuliAt = now;
+
+  playPuliSyllable(now, 0, 310);
+  playPuliSyllable(now, 0.18, 240);
+}
+
+function playPuliSyllable(now, delay, baseFreq) {
+  const start = now + delay;
+  const oscillator = audioContext.createOscillator();
+  const gain = audioContext.createGain();
+  const filter = audioContext.createBiquadFilter();
+
+  oscillator.type = "triangle";
+  oscillator.frequency.setValueAtTime(baseFreq, start);
+  oscillator.frequency.exponentialRampToValueAtTime(baseFreq * 1.55, start + 0.055);
+  oscillator.frequency.exponentialRampToValueAtTime(baseFreq * 0.72, start + 0.18);
+
+  filter.type = "bandpass";
+  filter.frequency.setValueAtTime(620, start);
+  filter.Q.setValueAtTime(5, start);
+
+  gain.gain.setValueAtTime(0.0001, start);
+  gain.gain.exponentialRampToValueAtTime(0.12, start + 0.025);
+  gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.22);
+
+  oscillator.connect(filter);
+  filter.connect(gain);
+  gain.connect(audioContext.destination);
+  oscillator.start(start);
+  oscillator.stop(start + 0.24);
 }
 
 function playMeowSyllable(now, delay, voice) {
@@ -1762,6 +1848,77 @@ function updateSpaceHazards() {
   }
 }
 
+function updateSpaceMonsters(dt) {
+  if (!isSpaceLevel() || state !== "playing") {
+    return;
+  }
+
+  spaceMonsters.forEach((monster) => {
+    monster.phase += dt;
+
+    const dx = player.x - monster.x;
+    const dy = player.y + player.height * 0.4 - monster.y;
+    const distance = Math.hypot(dx, dy);
+
+    if (monster.state === "sleeping") {
+      monster.x = monster.homeX;
+      monster.y = monster.homeY;
+      if (!player.hidden && distance < SPACE_MONSTER_WAKE_DISTANCE) {
+        monster.state = "chasing";
+        monster.puliTimer = 0;
+        playSpacePuli();
+      }
+      return;
+    }
+
+    if (monster.state === "returning") {
+      moveSpaceMonsterToward(monster, monster.homeX, monster.homeY, dt, SPACE_MONSTER_SPEED * 0.72);
+      if (!player.hidden && distance < SPACE_MONSTER_WAKE_DISTANCE * 0.78) {
+        monster.state = "chasing";
+        monster.puliTimer = 0;
+        playSpacePuli();
+        return;
+      }
+      if (Math.hypot(monster.homeX - monster.x, monster.homeY - monster.y) < 8) {
+        monster.x = monster.homeX;
+        monster.y = monster.homeY;
+        monster.state = "sleeping";
+      }
+      return;
+    }
+
+    if (player.hidden || distance > SPACE_MONSTER_FORGET_DISTANCE) {
+      monster.state = "returning";
+      return;
+    }
+
+    moveSpaceMonsterToward(monster, player.x - 20, player.y + 10, dt, SPACE_MONSTER_SPEED);
+    monster.puliTimer -= dt;
+    if (monster.puliTimer <= 0) {
+      playSpacePuli();
+      monster.puliTimer = SPACE_MONSTER_PULI_INTERVAL;
+    }
+
+    if (distance < SPACE_MONSTER_CATCH_DISTANCE) {
+      spaceDamagePlayer();
+    }
+  });
+}
+
+function moveSpaceMonsterToward(monster, targetX, targetY, dt, speed) {
+  const dx = targetX - monster.x;
+  const dy = targetY - monster.y;
+  const distance = Math.hypot(dx, dy);
+  if (distance < 0.001) {
+    return;
+  }
+
+  const step = Math.min(distance, speed * dt);
+  monster.x += (dx / distance) * step;
+  monster.y += (dy / distance) * step;
+  monster.facing = dx >= 0 ? 1 : -1;
+}
+
 function rectsOverlap(a, b) {
   return (
     a.x < b.x + b.width &&
@@ -1883,6 +2040,7 @@ function update(dt) {
     updateBears(dt);
     updateCobras(dt);
     updateBananas(dt);
+    updateSpaceMonsters(dt);
     updateSpaceHazards();
     updateCamera(dt);
     if (state === "playing") {
@@ -2678,16 +2836,22 @@ function drawSpacePlanet(cave) {
     ctx.stroke();
   }
 
-  if (cave.spaceMonster) {
-    drawSpaceMonster(0, -radius - 14, performance.now() / 500);
-  }
-
   ctx.restore();
 }
 
-function drawSpaceMonster(x, y, phase) {
+function drawSpaceMonsterEntity(monster) {
+  const x = monster.x - cameraX;
+  if (x < -130 || x > VIEW.width + 130) {
+    return;
+  }
+
+  drawSpaceMonster(x, monster.y, monster.phase, monster.state !== "sleeping", monster.facing);
+}
+
+function drawSpaceMonster(x, y, phase, awake, facing) {
   ctx.save();
   ctx.translate(x, y + Math.sin(phase) * 2);
+  ctx.scale(facing || 1, 1);
 
   ctx.fillStyle = "rgba(0, 0, 0, 0.2)";
   ctx.beginPath();
@@ -2730,20 +2894,24 @@ function drawSpaceMonster(x, y, phase) {
   ctx.strokeStyle = "#17372b";
   ctx.lineWidth = 3;
   ctx.beginPath();
-  ctx.moveTo(-15, 4);
-  ctx.quadraticCurveTo(-7, 8, 0, 4);
-  ctx.moveTo(11, 4);
-  ctx.quadraticCurveTo(18, 8, 25, 4);
+  if (awake) {
+    ctx.arc(-10, 5, 6, 0, Math.PI * 2);
+    ctx.moveTo(30, 5);
+    ctx.arc(24, 5, 6, 0, Math.PI * 2);
+  } else {
+    ctx.moveTo(-15, 4);
+    ctx.quadraticCurveTo(-7, 8, 0, 4);
+    ctx.moveTo(11, 4);
+    ctx.quadraticCurveTo(18, 8, 25, 4);
+  }
   ctx.stroke();
 
-  ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
-  roundedRect(-68, -103, 136, 34, 8);
-  ctx.fill();
-  ctx.fillStyle = "#3c315e";
-  ctx.font = "900 16px Inter, system-ui, sans-serif";
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillText("PULI PULI", 0, -86);
+  if (awake) {
+    ctx.fillStyle = "#17372b";
+    ctx.beginPath();
+    ctx.ellipse(7, 22, 13, 8, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
 
   ctx.restore();
 }
@@ -5005,6 +5173,7 @@ function draw() {
   stoneWalls.forEach(drawStoneWall);
   logs.forEach(drawLog);
   drawCheese();
+  spaceMonsters.forEach(drawSpaceMonsterEntity);
   octopuses.forEach(drawOctopus);
   bears.forEach(drawBear);
   cobras.forEach(drawCobra);
