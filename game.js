@@ -41,13 +41,33 @@ const COBRA_STRIKE_SPEED = 1.65;
 const BANANA_SLIP_DISTANCE = 54;
 const BANANA_SPIN_TIME = 1.2;
 const PROGRESS_STORAGE_KEY = "catAndMouseProgressV1";
-const HAT_PRICE = 5;
-const SHOP_HATS = [
-  { id: "cap", name: "LIPPI" },
-  { id: "cowboy", name: "COWBOY" },
-  { id: "pan", name: "PANNU" },
-  { id: "egg", name: "MUNA" },
+const START_CHEESE = 30;
+const SHOP_PRICE = 5;
+const MORE_SHOP_UNLOCK_CHEESE = 10;
+const BASE_SHOP_ITEMS = [
+  { id: "cap", name: "LIPPI", category: "hat" },
+  { id: "cowboy", name: "COWBOY", category: "hat" },
+  { id: "pan", name: "PANNU", category: "hat" },
+  { id: "egg", name: "MUNA", category: "hat" },
 ];
+const MORE_SHOP_ITEMS = [
+  { id: "stripeSuit", name: "RAITAPUKU", category: "suit", more: true },
+  { id: "dotSuit", name: "PILKKUPUKU", category: "suit", more: true },
+  { id: "starSuit", name: "TAHTIPUKU", category: "suit", more: true },
+  { id: "boltSuit", name: "SALAMAPUKU", category: "suit", more: true },
+  { id: "flowerSuit", name: "KUKKAPUKU", category: "suit", more: true },
+  { id: "wizard", name: "TAIKAHATTU", category: "hat", more: true },
+  { id: "crown", name: "KRUUNU", category: "hat", more: true },
+  { id: "greenHat", name: "VIHERHATTU", category: "hat", more: true },
+  { id: "winterHat", name: "TALVIHATTU", category: "hat", more: true },
+  { id: "helmet", name: "KYPARA", category: "hat", more: true },
+  { id: "goldNecklace", name: "KULTAKORU", category: "jewelry", more: true },
+  { id: "pearls", name: "HELMET", category: "jewelry", more: true },
+  { id: "starCharm", name: "TAHTIKORU", category: "jewelry", more: true },
+  { id: "heartCharm", name: "SYDANKORU", category: "jewelry", more: true },
+  { id: "bowTie", name: "RUSETTI", category: "jewelry", more: true },
+];
+const SHOP_ITEMS = [...BASE_SHOP_ITEMS, ...MORE_SHOP_ITEMS];
 
 const LEVELS = [
   {
@@ -257,6 +277,7 @@ const cheese = {
 let progress = loadProgress();
 let selectedStartLevel = 0;
 let levelButtons = [];
+let showMoreShop = false;
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
@@ -266,9 +287,13 @@ function getDefaultProgress() {
   return {
     completedLevels: Array(LEVELS.length).fill(false),
     cheeseRunLevels: Array(LEVELS.length).fill(false),
-    cheeseCount: 0,
-    ownedHats: [],
-    equippedHat: null,
+    cheeseCount: START_CHEESE,
+    ownedItems: [],
+    equippedItems: {
+      hat: null,
+      suit: null,
+      jewelry: null,
+    },
   };
 }
 
@@ -278,19 +303,33 @@ function normalizeProgress(saved) {
     return defaults;
   }
 
-  const ownedHats = Array.isArray(saved.ownedHats)
-    ? saved.ownedHats.filter((hatId) => SHOP_HATS.some((hat) => hat.id === hatId))
-    : [];
-  const equippedHat = SHOP_HATS.some((hat) => hat.id === saved.equippedHat) && ownedHats.includes(saved.equippedHat)
-    ? saved.equippedHat
-    : null;
+  const savedItems = Array.isArray(saved.ownedItems) ? saved.ownedItems : [];
+  const savedHats = Array.isArray(saved.ownedHats) ? saved.ownedHats : [];
+  const ownedItems = [...new Set([...savedItems, ...savedHats])]
+    .filter((itemId) => SHOP_ITEMS.some((item) => item.id === itemId));
+  const oldEquippedHat = saved.equippedHat || null;
+  const savedEquipped = saved.equippedItems && typeof saved.equippedItems === "object"
+    ? saved.equippedItems
+    : {};
+  const equippedItems = {
+    hat: savedEquipped.hat || oldEquippedHat,
+    suit: savedEquipped.suit || null,
+    jewelry: savedEquipped.jewelry || null,
+  };
+
+  Object.keys(equippedItems).forEach((category) => {
+    const item = SHOP_ITEMS.find((shopItem) => shopItem.id === equippedItems[category]);
+    if (!item || item.category !== category || !ownedItems.includes(item.id)) {
+      equippedItems[category] = null;
+    }
+  });
 
   return {
     completedLevels: defaults.completedLevels.map((_, index) => Boolean(saved.completedLevels && saved.completedLevels[index])),
     cheeseRunLevels: defaults.cheeseRunLevels.map((_, index) => Boolean(saved.cheeseRunLevels && saved.cheeseRunLevels[index])),
-    cheeseCount: Math.max(0, Math.floor(Number(saved.cheeseCount) || 0)),
-    ownedHats,
-    equippedHat,
+    cheeseCount: Math.max(START_CHEESE, Math.floor(Number(saved.cheeseCount) || 0)),
+    ownedItems,
+    equippedItems,
   };
 }
 
@@ -353,8 +392,12 @@ function buildLevelSelect() {
   updateOverlayProgress();
 }
 
-function isHatOwned(hatId) {
-  return progress.ownedHats.includes(hatId);
+function getShopItem(itemId) {
+  return SHOP_ITEMS.find((item) => item.id === itemId);
+}
+
+function isShopItemOwned(itemId) {
+  return progress.ownedItems.includes(itemId);
 }
 
 function openShop() {
@@ -372,28 +415,40 @@ function closeShop() {
   }
 }
 
-function buyOrEquipHat(hatId) {
-  const hat = SHOP_HATS.find((item) => item.id === hatId);
-  if (!hat) {
+function buyOrEquipItem(itemId) {
+  const shopItem = getShopItem(itemId);
+  if (!shopItem) {
     return;
   }
 
-  if (isHatOwned(hatId)) {
-    progress.equippedHat = hatId;
+  if (isShopItemOwned(itemId)) {
+    progress.equippedItems[shopItem.category] = itemId;
     saveProgress();
     updateOverlayProgress();
     return;
   }
 
-  if (progress.cheeseCount < HAT_PRICE) {
+  if (progress.cheeseCount < SHOP_PRICE) {
     return;
   }
 
-  progress.cheeseCount -= HAT_PRICE;
-  progress.ownedHats.push(hatId);
-  progress.equippedHat = hatId;
+  progress.cheeseCount -= SHOP_PRICE;
+  progress.ownedItems.push(itemId);
+  progress.equippedItems[shopItem.category] = itemId;
   saveProgress();
   updateOverlayProgress();
+}
+
+function createMoreShopButton() {
+  const moreButton = document.createElement("button");
+  moreButton.className = "shop-more-button";
+  moreButton.type = "button";
+  moreButton.textContent = "LISAA TAVAROITA";
+  moreButton.addEventListener("click", () => {
+    showMoreShop = true;
+    renderShopItems();
+  });
+  return moreButton;
 }
 
 function renderShopItems() {
@@ -402,44 +457,62 @@ function renderShopItems() {
   }
 
   shopItems.innerHTML = "";
-  SHOP_HATS.forEach((hat) => {
-    const owned = isHatOwned(hat.id);
-    const equipped = progress.equippedHat === hat.id;
-    const canBuy = progress.cheeseCount >= HAT_PRICE;
+  const visibleItems = showMoreShop ? SHOP_ITEMS : BASE_SHOP_ITEMS;
+  shopItems.classList.toggle("is-expanded", showMoreShop);
+
+  visibleItems.forEach((shopItem) => {
+    const owned = isShopItemOwned(shopItem.id);
+    const equipped = progress.equippedItems[shopItem.category] === shopItem.id;
+    const canBuy = progress.cheeseCount >= SHOP_PRICE;
+    const slot = document.createElement("div");
+    slot.className = "shop-slot";
     const item = document.createElement("button");
     item.className = "shop-item";
     item.type = "button";
     item.disabled = !owned && !canBuy;
     item.classList.toggle("is-equipped", equipped);
-    item.addEventListener("click", () => buyOrEquipHat(hat.id));
+    item.addEventListener("click", () => buyOrEquipItem(shopItem.id));
 
     const icon = document.createElement("canvas");
     icon.className = "hat-canvas";
     icon.width = 80;
     icon.height = 58;
-    drawHatIcon(icon, hat.id);
+    drawShopItemIcon(icon, shopItem.id);
 
     const name = document.createElement("span");
     name.className = "shop-item-name";
-    name.textContent = hat.name;
+    name.textContent = shopItem.name;
 
     const status = document.createElement("span");
     status.className = "shop-item-status";
-    status.textContent = equipped ? "KAYTOSSA" : owned ? "PUE" : `${HAT_PRICE} JUUSTOA`;
+    status.textContent = equipped ? "KAYTOSSA" : owned ? "VALITSE" : `${SHOP_PRICE} JUUSTOA`;
 
     item.appendChild(icon);
     item.appendChild(name);
     item.appendChild(status);
-    shopItems.appendChild(item);
+    slot.appendChild(item);
+
+    if (!showMoreShop && shopItem.id === "cap" && progress.cheeseCount >= MORE_SHOP_UNLOCK_CHEESE) {
+      slot.appendChild(createMoreShopButton());
+    }
+
+    shopItems.appendChild(slot);
   });
 }
 
-function drawHatIcon(canvasElement, hatId) {
+function drawShopItemIcon(canvasElement, itemId) {
   const target = canvasElement.getContext("2d");
   target.clearRect(0, 0, canvasElement.width, canvasElement.height);
   target.save();
   target.translate(40, 32);
-  drawHatShape(target, hatId, 0, 0, 1.15);
+  const item = getShopItem(itemId);
+  if (item && item.category === "suit") {
+    drawSuitShape(target, itemId, 0, 0, 1.05);
+  } else if (item && item.category === "jewelry") {
+    drawJewelryShape(target, itemId, 0, 0, 1.15);
+  } else {
+    drawHatShape(target, itemId, 0, 0, 1.15);
+  }
   target.restore();
 }
 
@@ -465,8 +538,11 @@ function drawShopPreview() {
   shopCtx.translate(128, 84);
   shopCtx.scale(1.55, 1.55);
   drawShopMouse(shopCtx);
-  if (progress.equippedHat) {
-    drawHatShape(shopCtx, progress.equippedHat, 25, -7, 0.7);
+  if (progress.equippedItems.hat) {
+    drawHatShape(shopCtx, progress.equippedItems.hat, 25, -7, 0.7);
+  }
+  if (progress.equippedItems.jewelry) {
+    drawJewelryShape(shopCtx, progress.equippedItems.jewelry, 22, 22, 0.55);
   }
   shopCtx.restore();
 }
@@ -484,6 +560,10 @@ function drawShopMouse(target) {
   target.beginPath();
   target.ellipse(0, 18, 29, 17, 0, 0, Math.PI * 2);
   target.fill();
+
+  if (progress.equippedItems.suit) {
+    drawSuitShape(target, progress.equippedItems.suit, 0, 18, 0.74);
+  }
 
   target.fillStyle = "#9aa0a3";
   target.beginPath();
@@ -2784,11 +2864,27 @@ function drawDesertVeil(cx, cy, scale) {
 }
 
 function drawEquippedMouseHat(cx, cy, size) {
-  if (!progress.equippedHat) {
+  if (!progress.equippedItems.hat) {
     return;
   }
 
-  drawHatShape(ctx, progress.equippedHat, cx, cy, size);
+  drawHatShape(ctx, progress.equippedItems.hat, cx, cy, size);
+}
+
+function drawEquippedMouseSuit(cx, cy, size) {
+  if (!progress.equippedItems.suit) {
+    return;
+  }
+
+  drawSuitShape(ctx, progress.equippedItems.suit, cx, cy, size);
+}
+
+function drawEquippedMouseJewelry(cx, cy, size) {
+  if (!progress.equippedItems.jewelry) {
+    return;
+  }
+
+  drawJewelryShape(ctx, progress.equippedItems.jewelry, cx, cy, size);
 }
 
 function drawHatShape(target, hatId, cx, cy, size) {
@@ -2893,9 +2989,259 @@ function drawHatShape(target, hatId, cx, cy, size) {
     target.beginPath();
     target.arc(3, 0, 8, 0, Math.PI * 2);
     target.fill();
+  } else if (hatId === "wizard") {
+    target.fillStyle = "#5b4cc4";
+    target.strokeStyle = "#24195f";
+    target.lineWidth = 3;
+    target.beginPath();
+    target.moveTo(-22, 8);
+    target.lineTo(2, -42);
+    target.lineTo(26, 8);
+    target.closePath();
+    target.fill();
+    target.stroke();
+
+    target.fillStyle = "#f5d34d";
+    target.beginPath();
+    target.arc(0, -18, 4, 0, Math.PI * 2);
+    target.moveTo(8, -2);
+    target.lineTo(13, 7);
+    target.lineTo(4, 4);
+    target.closePath();
+    target.fill();
+
+    target.fillStyle = "#3b2c91";
+    target.fillRect(-23, 4, 48, 9);
+  } else if (hatId === "crown") {
+    target.fillStyle = "#f5c83b";
+    target.strokeStyle = "#8a6518";
+    target.lineWidth = 3;
+    target.beginPath();
+    target.moveTo(-27, 9);
+    target.lineTo(-22, -17);
+    target.lineTo(-7, 0);
+    target.lineTo(0, -24);
+    target.lineTo(9, 0);
+    target.lineTo(24, -17);
+    target.lineTo(28, 9);
+    target.closePath();
+    target.fill();
+    target.stroke();
+
+    target.fillStyle = "#df443a";
+    [-18, 0, 20].forEach((gemX) => {
+      target.beginPath();
+      target.arc(gemX, 3, 3, 0, Math.PI * 2);
+      target.fill();
+    });
+  } else if (hatId === "greenHat") {
+    target.fillStyle = "#2f9a4d";
+    target.strokeStyle = "#145128";
+    target.lineWidth = 3;
+    target.beginPath();
+    target.ellipse(0, 7, 34, 8, 0, 0, Math.PI * 2);
+    target.fill();
+    target.stroke();
+    target.fillStyle = "#39b15c";
+    target.beginPath();
+    target.moveTo(-18, 4);
+    target.quadraticCurveTo(-10, -26, 15, -21);
+    target.quadraticCurveTo(26, -13, 20, 5);
+    target.closePath();
+    target.fill();
+    target.stroke();
+  } else if (hatId === "winterHat") {
+    target.fillStyle = "#df443a";
+    target.strokeStyle = "#7d1f1c";
+    target.lineWidth = 3;
+    target.beginPath();
+    target.moveTo(-22, 4);
+    target.quadraticCurveTo(-11, -28, 17, -17);
+    target.quadraticCurveTo(29, -9, 21, 6);
+    target.closePath();
+    target.fill();
+    target.stroke();
+    target.fillStyle = "#ffffff";
+    target.beginPath();
+    target.ellipse(0, 8, 31, 7, 0, 0, Math.PI * 2);
+    target.arc(23, -15, 7, 0, Math.PI * 2);
+    target.fill();
+  } else if (hatId === "helmet") {
+    target.fillStyle = "#f2c34a";
+    target.strokeStyle = "#6e5115";
+    target.lineWidth = 3;
+    target.beginPath();
+    target.arc(0, 5, 28, Math.PI, Math.PI * 2);
+    target.lineTo(28, 8);
+    target.lineTo(-28, 8);
+    target.closePath();
+    target.fill();
+    target.stroke();
+    target.strokeStyle = "#ffffff";
+    target.lineWidth = 4;
+    target.beginPath();
+    target.moveTo(0, -20);
+    target.lineTo(0, 8);
+    target.stroke();
   }
 
   target.restore();
+}
+
+function drawSuitShape(target, suitId, cx, cy, size) {
+  target.save();
+  target.translate(cx, cy);
+  target.scale(size, size);
+
+  target.fillStyle = getSuitBaseColor(suitId);
+  target.strokeStyle = "rgba(34, 42, 42, 0.45)";
+  target.lineWidth = 3;
+  target.beginPath();
+  target.ellipse(0, 0, 31, 18, 0, 0, Math.PI * 2);
+  target.fill();
+  target.stroke();
+
+  if (suitId === "stripeSuit") {
+    target.strokeStyle = "#f4f2d7";
+    target.lineWidth = 5;
+    [-18, 0, 18].forEach((stripeX) => {
+      target.beginPath();
+      target.moveTo(stripeX - 10, -15);
+      target.lineTo(stripeX + 3, 15);
+      target.stroke();
+    });
+  } else if (suitId === "dotSuit") {
+    target.fillStyle = "#f4f2d7";
+    [[-14, -5], [0, 6], [16, -3], [9, 12], [-21, 9]].forEach(([dotX, dotY]) => {
+      target.beginPath();
+      target.arc(dotX, dotY, 3.3, 0, Math.PI * 2);
+      target.fill();
+    });
+  } else if (suitId === "starSuit") {
+    target.fillStyle = "#f5d34d";
+    drawTinyStar(target, -13, -2, 7);
+    drawTinyStar(target, 9, 7, 6);
+  } else if (suitId === "boltSuit") {
+    target.fillStyle = "#f5d34d";
+    target.beginPath();
+    target.moveTo(2, -16);
+    target.lineTo(-11, 3);
+    target.lineTo(2, 3);
+    target.lineTo(-4, 18);
+    target.lineTo(16, -5);
+    target.lineTo(3, -5);
+    target.closePath();
+    target.fill();
+  } else if (suitId === "flowerSuit") {
+    target.fillStyle = "#f5d34d";
+    [[-14, -1], [10, 5]].forEach(([flowerX, flowerY]) => {
+      for (let petal = 0; petal < 5; petal += 1) {
+        const angle = petal * Math.PI * 0.4;
+        target.beginPath();
+        target.ellipse(flowerX + Math.cos(angle) * 5, flowerY + Math.sin(angle) * 5, 4, 2.5, angle, 0, Math.PI * 2);
+        target.fill();
+      }
+      target.fillStyle = "#df443a";
+      target.beginPath();
+      target.arc(flowerX, flowerY, 2.7, 0, Math.PI * 2);
+      target.fill();
+      target.fillStyle = "#f5d34d";
+    });
+  }
+
+  target.restore();
+}
+
+function getSuitBaseColor(suitId) {
+  if (suitId === "stripeSuit") {
+    return "#3467b7";
+  }
+  if (suitId === "dotSuit") {
+    return "#d85b87";
+  }
+  if (suitId === "starSuit") {
+    return "#413a8f";
+  }
+  if (suitId === "boltSuit") {
+    return "#2c9a8f";
+  }
+  return "#5da64b";
+}
+
+function drawJewelryShape(target, jewelryId, cx, cy, size) {
+  target.save();
+  target.translate(cx, cy);
+  target.scale(size, size);
+  target.lineCap = "round";
+  target.lineJoin = "round";
+
+  if (jewelryId === "bowTie") {
+    target.fillStyle = "#df443a";
+    target.strokeStyle = "#7d1f1c";
+    target.lineWidth = 3;
+    target.beginPath();
+    target.moveTo(-3, 0);
+    target.lineTo(-28, -12);
+    target.lineTo(-26, 12);
+    target.closePath();
+    target.moveTo(3, 0);
+    target.lineTo(28, -12);
+    target.lineTo(26, 12);
+    target.closePath();
+    target.fill();
+    target.stroke();
+    target.fillStyle = "#f2c34a";
+    target.fillRect(-5, -6, 10, 12);
+  } else {
+    target.strokeStyle = jewelryId === "pearls" ? "#fff7df" : "#f2c34a";
+    target.lineWidth = 5;
+    target.beginPath();
+    target.arc(0, -4, 24, 0.15, Math.PI - 0.15);
+    target.stroke();
+
+    if (jewelryId === "goldNecklace") {
+      target.fillStyle = "#f2c34a";
+      target.beginPath();
+      target.ellipse(0, 20, 6, 9, 0, 0, Math.PI * 2);
+      target.fill();
+    } else if (jewelryId === "pearls") {
+      target.fillStyle = "#fff7df";
+      for (let pearl = -3; pearl <= 3; pearl += 1) {
+        target.beginPath();
+        target.arc(pearl * 7, 14 + Math.abs(pearl) * 1.4, 3.2, 0, Math.PI * 2);
+        target.fill();
+      }
+    } else if (jewelryId === "starCharm") {
+      target.fillStyle = "#f5d34d";
+      drawTinyStar(target, 0, 20, 8);
+    } else if (jewelryId === "heartCharm") {
+      target.fillStyle = "#df443a";
+      target.beginPath();
+      target.moveTo(0, 27);
+      target.bezierCurveTo(-18, 15, -10, 4, 0, 11);
+      target.bezierCurveTo(10, 4, 18, 15, 0, 27);
+      target.fill();
+    }
+  }
+
+  target.restore();
+}
+
+function drawTinyStar(target, cx, cy, radius) {
+  target.beginPath();
+  for (let point = 0; point < 10; point += 1) {
+    const angle = -Math.PI / 2 + point * Math.PI / 5;
+    const r = point % 2 === 0 ? radius : radius * 0.42;
+    const x = cx + Math.cos(angle) * r;
+    const y = cy + Math.sin(angle) * r;
+    if (point === 0) {
+      target.moveTo(x, y);
+    } else {
+      target.lineTo(x, y);
+    }
+  }
+  target.closePath();
+  target.fill();
 }
 
 function drawRallyMouse(x, y, facing) {
@@ -3012,6 +3358,7 @@ function drawMouseDriver() {
   ctx.ellipse(22, 5, 3.8, 2.6, 0, 0, Math.PI * 2);
   ctx.fill();
 
+  drawEquippedMouseJewelry(8, 9, 0.32);
   drawEquippedMouseHat(8, -11, 0.46);
 }
 
@@ -3422,6 +3769,8 @@ function drawMouse() {
   ctx.ellipse(0, 18, 29, 17, 0, 0, Math.PI * 2);
   ctx.fill();
 
+  drawEquippedMouseSuit(0, 18, 0.74);
+
   ctx.fillStyle = "#9aa0a3";
   ctx.beginPath();
   ctx.ellipse(24, 12, 18, 14, -0.12, 0, Math.PI * 2);
@@ -3473,6 +3822,7 @@ function drawMouse() {
     drawDesertVeil(26, 5, 0.74);
   }
 
+  drawEquippedMouseJewelry(24, 24, 0.42);
   drawEquippedMouseHat(26, -9, 0.64);
 
   ctx.restore();
