@@ -54,6 +54,7 @@ const SPACE_MONSTER_PULI_INTERVAL = 1.15;
 const PROGRESS_STORAGE_KEY = "catAndMouseProgressV1";
 const START_CHEESE = 0;
 const OLD_TEST_CHEESE_GRANT = 30;
+const ALL_LEVELS_CHEESE_BONUS = 5;
 const SHOP_PRICE = 5;
 const MORE_SHOP_UNLOCK_CHEESE = 10;
 const BASE_SHOP_ITEMS = [
@@ -652,6 +653,15 @@ function completeLevel(levelIndex) {
 
   progress.cheeseCount += 1;
   changed = true;
+
+  if (!progress.cheeseRunLevels[levelIndex]) {
+    progress.cheeseRunLevels[levelIndex] = true;
+  }
+
+  if (progress.cheeseRunLevels.every(Boolean)) {
+    progress.cheeseCount += ALL_LEVELS_CHEESE_BONUS;
+    progress.cheeseRunLevels = Array(LEVELS.length).fill(false);
+  }
 
   if (changed) {
     saveProgress();
