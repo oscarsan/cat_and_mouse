@@ -44,8 +44,8 @@ const SPACE_PLAYER_SPEED = 330;
 const SPACE_PLAYER_VERTICAL_SPEED = 260;
 const SPACE_MIN_Y = 74;
 const SPACE_MAX_Y = 354;
-const SPACE_LASER_SPEED = 560;
-const SPACE_LASER_INTERVAL = 1.35;
+const SPACE_LASER_SPEED = 360;
+const SPACE_LASER_INTERVAL = 2.45;
 const PROGRESS_STORAGE_KEY = "catAndMouseProgressV1";
 const START_CHEESE = 30;
 const SHOP_PRICE = 5;
@@ -832,7 +832,7 @@ function resetAfterLife() {
     cat.heldAtGate = false;
     cat.blockedByLog = false;
     cat.meowTimer = 1.3 + index * 2.5;
-    cat.laserTimer = 0.75 + index * 0.52;
+    cat.laserTimer = 1.35 + index * 0.8;
     cat.eaten = false;
   });
   bears.forEach((bear) => {
@@ -1295,7 +1295,7 @@ function updateSpaceCats(dt) {
     cat.laserTimer -= dt;
     if (cat.laserTimer <= 0 && player.x > cat.x + 95 && state === "playing") {
       fireCatLaser(cat, index);
-      cat.laserTimer = SPACE_LASER_INTERVAL + index * 0.35 + Math.random() * 0.35;
+      cat.laserTimer = SPACE_LASER_INTERVAL + index * 0.6 + Math.random() * 0.75;
     }
   });
 }
@@ -1309,7 +1309,7 @@ function fireCatLaser(cat, index) {
   catLasers.push({
     x: startX,
     y: startY,
-    vx: SPACE_LASER_SPEED + index * 34,
+    vx: SPACE_LASER_SPEED + index * 24,
     vy: driftY,
     life: 2.4,
     phase: index * 0.8,
