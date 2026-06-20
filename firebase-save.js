@@ -18,6 +18,7 @@
 
   function copyProgress(progress) {
     return {
+      playerName: typeof progress.playerName === "string" ? progress.playerName : "",
       completedLevels: Array.isArray(progress.completedLevels) ? progress.completedLevels.map(Boolean) : [],
       cheeseRunLevels: Array.isArray(progress.cheeseRunLevels) ? progress.cheeseRunLevels.map(Boolean) : [],
       cheeseCount: Math.max(0, Math.floor(Number(progress.cheeseCount) || 0)),
@@ -92,6 +93,7 @@
     }
 
     await db.collection("players").doc(playerId).set({
+      playerName: typeof progress.playerName === "string" ? progress.playerName : "",
       progress: copyProgress(progress),
       updatedAt: window.firebase.firestore.FieldValue.serverTimestamp(),
     }, { merge: true });

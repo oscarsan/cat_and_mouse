@@ -57,6 +57,17 @@ body {
   pointer-events: none;
 }
 
+.overlay.is-shop-open {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  background: rgb(12 30 26 / 0.44);
+}
+
+.overlay.is-shop-open > :not(.shop-panel) {
+  display: none;
+}
+
 .overlay-title {
   color: #ffffff;
   font-weight: 800;
@@ -64,6 +75,38 @@ body {
   line-height: 1;
   text-shadow: 0 4px 14px rgb(16 35 42 / 0.35);
   text-align: center;
+}
+
+.player-name-input {
+  width: min(78vw, 360px);
+  min-height: 52px;
+  border: 3px solid rgb(255 255 255 / 0.72);
+  border-radius: 8px;
+  background: rgb(255 255 255 / 0.9);
+  color: #234237;
+  box-shadow: 0 8px 18px rgb(10 45 28 / 0.18);
+  font: inherit;
+  font-size: 18px;
+  font-weight: 900;
+  letter-spacing: 0;
+  text-align: center;
+  padding: 0 14px;
+}
+
+.player-name-input::placeholder {
+  color: #5d756d;
+}
+
+.player-name-input:focus-visible {
+  outline: 4px solid #f8e46d;
+  outline-offset: 4px;
+}
+
+.player-name-input.is-needed {
+  border-color: #f8e46d;
+  box-shadow:
+    0 0 0 5px rgb(248 228 109 / 0.28),
+    0 8px 18px rgb(10 45 28 / 0.18);
 }
 
 .level-select {
@@ -152,6 +195,14 @@ body {
   box-shadow: 0 3px 0 #147b33, 0 10px 24px rgb(11 47 28 / 0.24);
 }
 
+.start-button:disabled {
+  cursor: not-allowed;
+  filter: saturate(0.55);
+  opacity: 0.72;
+  transform: none;
+  box-shadow: 0 8px 0 #147b33, 0 18px 34px rgb(11 47 28 / 0.18);
+}
+
 .start-button:focus-visible {
   outline: 4px solid #f8e46d;
   outline-offset: 5px;
@@ -171,12 +222,30 @@ body {
   padding: 0;
 }
 
+.play-shop-button {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 2;
+  width: 70px;
+  height: 56px;
+}
+
+.play-shop-button.is-hidden {
+  display: none;
+}
+
+.play-shop-button .shop-image {
+  transform: scale(0.82);
+}
+
 .shop-button:active {
   transform: translateY(5px);
   box-shadow: 0 2px 0 #146b31, 0 9px 20px rgb(11 47 28 / 0.22);
 }
 
 .shop-button:focus-visible,
+.play-shop-button:focus-visible,
 .shop-close-button:focus-visible,
 .shop-item:focus-visible {
   outline: 4px solid #f8e46d;
@@ -386,6 +455,33 @@ body {
 }
 
 @media (max-width: 640px) {
+  .overlay {
+    gap: 12px;
+  }
+
+  .player-name-input {
+    width: min(82vw, 320px);
+    min-height: 48px;
+    font-size: 16px;
+  }
+
+  .level-select {
+    gap: 8px;
+  }
+
+  .level-dot {
+    width: 42px;
+    height: 42px;
+    font-size: 16px;
+  }
+
+  .play-shop-button {
+    top: 9px;
+    right: 9px;
+    width: 60px;
+    height: 50px;
+  }
+
   .shop-panel {
     inset: 10px;
     width: calc(100% - 20px);

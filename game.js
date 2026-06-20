@@ -3,9 +3,11 @@ const ctx = canvas.getContext("2d");
 const overlay = document.getElementById("overlay");
 const overlayTitle = document.getElementById("overlayTitle");
 const startButton = document.getElementById("startButton");
+const playerNameInput = document.getElementById("playerNameInput");
 const levelSelect = document.getElementById("levelSelect");
 const cheeseCount = document.getElementById("cheeseCount");
 const shopButton = document.getElementById("shopButton");
+const playShopButton = document.getElementById("playShopButton");
 const shopPanel = document.getElementById("shopPanel");
 const shopCloseButton = document.getElementById("shopCloseButton");
 const shopPreview = document.getElementById("shopPreview");
@@ -53,6 +55,7 @@ const SPACE_MONSTER_CATCH_DISTANCE = 58;
 const SPACE_MONSTER_PULI_INTERVAL = 1.15;
 const PROGRESS_STORAGE_KEY = "catAndMouseProgressV1";
 const START_CHEESE = 0;
+const PLAYER_NAME_MAX_LENGTH = 18;
 const OLD_TEST_CHEESE_GRANT = 30;
 const ALL_LEVELS_CHEESE_BONUS = 5;
 const SHOP_PRICE = 5;
@@ -332,6 +335,7 @@ function clamp(value, min, max) {
 
 function getDefaultProgress() {
   return {
+    playerName: "",
     completedLevels: Array(LEVELS.length).fill(false),
     cheeseRunLevels: Array(LEVELS.length).fill(false),
     cheeseCount: START_CHEESE,
@@ -351,6 +355,7 @@ function normalizeProgress(saved) {
     return defaults;
   }
 
+  const playerName = sanitizePlayerName(saved.playerName || "");
   const savedItems = Array.isArray(saved.ownedItems) ? saved.ownedItems : [];
   const savedHats = Array.isArray(saved.ownedHats) ? saved.ownedHats : [];
   const ownedItems = [...new Set([...savedItems, ...savedHats])]
@@ -377,6 +382,7 @@ function normalizeProgress(saved) {
     : Math.max(0, savedCheeseCount - OLD_TEST_CHEESE_GRANT);
 
   return {
+    playerName,
     completedLevels: defaults.completedLevels.map((_, index) => Boolean(saved.completedLevels && saved.completedLevels[index])),
     cheeseRunLevels: defaults.cheeseRunLevels.map((_, index) => Boolean(saved.cheeseRunLevels && saved.cheeseRunLevels[index])),
     cheeseCount,
@@ -402,6 +408,31 @@ function saveProgress() {
   }
 
   scheduleCloudProgressSave();
+}
+
+function sanitizePlayerName(name) {
+  return String(name || "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, PLAYER_NAME_MAX_LENGTH);
+}
+
+function hasPlayerName() {
+  return sanitizePlayerName(progress.playerName).length > 0;
+}
+
+function savePlayerNameFromInput() {
+  if (!playerNameInput) {
+    return;
+  }
+
+  const playerName = sanitizePlayerName(playerNameInput.value);
+  playerNameInput.value = playerName;
+  playerNameInput.classList.toggle("is-needed", !playerName);
+  if (progress.playerName !== playerName) {
+    progress.playerName = playerName;
+    saveProgress();
+  }
 }
 
 function scheduleCloudProgressSave() {
@@ -448,6 +479,13 @@ function setSelectedStartLevel(levelIndex) {
 }
 
 function updateOverlayProgress() {
+  if (playerNameInput) {
+    playerNameInput.value = progress.playerName || "";
+    playerNameInput.classList.toggle("is-needed", !hasPlayerName());
+  }
+
+  startButton.disabled = !hasPlayerName();
+
   if (cheeseCount) {
     cheeseCount.textContent = String(progress.cheeseCount);
   }
@@ -463,6 +501,7 @@ function updateOverlayProgress() {
 
   renderShopItems();
   drawShopPreview();
+  updatePlayShopButton();
 }
 
 function buildLevelSelect() {
@@ -499,12 +538,26 @@ function openShop() {
   }
 
   updateOverlayProgress();
+  if (state === "playing") {
+    state = "shopping";
+    overlay.classList.add("is-shop-open");
+    overlay.classList.remove("is-hidden");
+  }
   shopPanel.classList.remove("is-hidden");
+  updatePlayShopButton();
 }
 
 function closeShop() {
   if (shopPanel) {
     shopPanel.classList.add("is-hidden");
+  }
+
+  if (state === "shopping") {
+    overlay.classList.remove("is-shop-open");
+    overlay.classList.add("is-hidden");
+    state = "playing";
+    updatePlayShopButton();
+    canvas.focus();
   }
 }
 
@@ -970,19 +1023,37 @@ function resetAfterLife() {
 }
 
 function startGame() {
+  savePlayerNameFromInput();
+  if (!hasPlayerName()) {
+    if (playerNameInput) {
+      playerNameInput.classList.add("is-needed");
+      playerNameInput.focus();
+    }
+    return;
+  }
+
   resumeAudio();
   closeShop();
   resetRun(selectedStartLevel);
   state = "playing";
+  overlay.classList.remove("is-shop-open");
   overlay.classList.add("is-hidden");
+  updatePlayShopButton();
   canvas.focus();
 }
 
 function showOverlay(title, buttonText) {
+  overlay.classList.remove("is-shop-open");
   overlayTitle.textContent = title;
   startButton.textContent = buttonText;
   updateOverlayProgress();
   overlay.classList.remove("is-hidden");
+}
+
+function updatePlayShopButton() {
+  if (playShopButton) {
+    playShopButton.classList.toggle("is-hidden", state !== "playing");
+  }
 }
 
 function queueJump() {
@@ -2146,6 +2217,8 @@ function update(dt) {
     updateWin(dt);
     updateCamera(dt);
   }
+
+  updatePlayShopButton();
 }
 
 function roundedRect(x, y, width, height, radius) {
@@ -5295,9 +5368,24 @@ window.addEventListener("keydown", (event) => {
     queueJump();
   }
 });
+if (playerNameInput) {
+  playerNameInput.addEventListener("input", () => {
+    const playerName = sanitizePlayerName(playerNameInput.value);
+    playerNameInput.classList.toggle("is-needed", !playerName);
+    startButton.disabled = !playerName;
+    if (progress.playerName !== playerName) {
+      progress.playerName = playerName;
+      saveProgress();
+    }
+  });
+  playerNameInput.addEventListener("change", savePlayerNameFromInput);
+}
 startButton.addEventListener("click", startGame);
 if (shopButton) {
   shopButton.addEventListener("click", openShop);
+}
+if (playShopButton) {
+  playShopButton.addEventListener("click", openShop);
 }
 if (shopCloseButton) {
   shopCloseButton.addEventListener("click", closeShop);

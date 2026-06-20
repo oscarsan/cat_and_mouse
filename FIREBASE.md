@@ -20,7 +20,7 @@ Player saves are stored at:
 players/{playerId}
 ```
 
-The current game saves cheese, finished levels, owned shop items, and equipped shop items.
+The current game saves player name, cheese, finished levels, owned shop items, and equipped shop items.
 
 ## Test it
 
@@ -45,3 +45,5 @@ After winning a level or buying a shop item, open Firestore and look for:
 ```text
 players/{playerId}
 ```
+
+The player name is saved as `playerName`, so the player list is easier to read in Firebase.

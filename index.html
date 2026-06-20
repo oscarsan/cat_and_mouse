@@ -9,8 +9,16 @@
   <body>
     <main class="game-shell">
       <canvas id="game" aria-label="Cat and Mouse"></canvas>
+      <button id="playShopButton" class="shop-button play-shop-button is-hidden" type="button" aria-label="Kauppa">
+        <span class="shop-image" aria-hidden="true">
+          <span class="shop-awning"></span>
+          <span class="shop-window"></span>
+          <span class="shop-door"></span>
+        </span>
+      </button>
       <div id="overlay" class="overlay">
         <div id="overlayTitle" class="overlay-title">Cat and Mouse</div>
+        <input id="playerNameInput" class="player-name-input" type="text" maxlength="18" autocomplete="nickname" aria-label="Pelaajan nimi" placeholder="PELAAJAN NIMI">
         <div id="levelSelect" class="level-select" aria-label="Tason valinta"></div>
         <div id="cheeseBank" class="cheese-bank" aria-label="Juustot">
           <span class="cheese-mark" aria-hidden="true"></span>
