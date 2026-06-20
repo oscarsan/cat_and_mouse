@@ -10,6 +10,21 @@ service cloud.firestore {
       allow read, write: if signedIn() && request.auth.uid == playerId;
     }
 
+    match /leaderboard/{playerId} {
+      allow read: if true;
+      allow create, update: if signedIn()
+        && request.auth.uid == playerId
+        && request.resource.data.keys().hasOnly(['playerName', 'cheeseCount', 'updatedAt'])
+        && request.resource.data.playerName is string
+        && request.resource.data.playerName.size() > 0
+        && request.resource.data.playerName.size() <= 18
+        && request.resource.data.cheeseCount is int
+        && request.resource.data.cheeseCount >= 0
+        && request.resource.data.cheeseCount <= 999999
+        && request.resource.data.updatedAt is timestamp;
+      allow delete: if signedIn() && request.auth.uid == playerId;
+    }
+
     match /levels/{levelId} {
       allow read: if resource.data.isPublic == true
         || (signedIn() && resource.data.ownerId == request.auth.uid);

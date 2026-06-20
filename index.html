@@ -9,13 +9,22 @@
   <body>
     <main class="game-shell">
       <canvas id="game" aria-label="Cat and Mouse"></canvas>
-      <button id="playShopButton" class="shop-button play-shop-button is-hidden" type="button" aria-label="Kauppa">
-        <span class="shop-image" aria-hidden="true">
-          <span class="shop-awning"></span>
-          <span class="shop-window"></span>
-          <span class="shop-door"></span>
-        </span>
-      </button>
+      <div class="play-actions">
+        <button id="playLeaderboardButton" class="leaderboard-button play-action-button is-hidden" type="button" aria-label="Tulostaulu">
+          <span class="leaderboard-image" aria-hidden="true">
+            <span class="leaderboard-bar leaderboard-bar-left"></span>
+            <span class="leaderboard-bar leaderboard-bar-center"></span>
+            <span class="leaderboard-bar leaderboard-bar-right"></span>
+          </span>
+        </button>
+        <button id="playShopButton" class="shop-button play-action-button is-hidden" type="button" aria-label="Kauppa">
+          <span class="shop-image" aria-hidden="true">
+            <span class="shop-awning"></span>
+            <span class="shop-window"></span>
+            <span class="shop-door"></span>
+          </span>
+        </button>
+      </div>
       <div id="overlay" class="overlay">
         <div id="overlayTitle" class="overlay-title">Cat and Mouse</div>
         <input id="playerNameInput" class="player-name-input" type="text" maxlength="18" autocomplete="nickname" aria-label="Pelaajan nimi" placeholder="PELAAJAN NIMI">
@@ -25,13 +34,22 @@
           <span id="cheeseCount">0</span>
         </div>
         <button id="startButton" class="start-button" type="button">START</button>
-        <button id="shopButton" class="shop-button" type="button" aria-label="Kauppa">
-          <span class="shop-image" aria-hidden="true">
-            <span class="shop-awning"></span>
-            <span class="shop-window"></span>
-            <span class="shop-door"></span>
-          </span>
-        </button>
+        <div class="menu-actions">
+          <button id="leaderboardButton" class="leaderboard-button" type="button" aria-label="Tulostaulu">
+            <span class="leaderboard-image" aria-hidden="true">
+              <span class="leaderboard-bar leaderboard-bar-left"></span>
+              <span class="leaderboard-bar leaderboard-bar-center"></span>
+              <span class="leaderboard-bar leaderboard-bar-right"></span>
+            </span>
+          </button>
+          <button id="shopButton" class="shop-button" type="button" aria-label="Kauppa">
+            <span class="shop-image" aria-hidden="true">
+              <span class="shop-awning"></span>
+              <span class="shop-window"></span>
+              <span class="shop-door"></span>
+            </span>
+          </button>
+        </div>
         <div id="shopPanel" class="shop-panel is-hidden" role="dialog" aria-label="Hiiren kauppa">
           <button id="shopCloseButton" class="shop-close-button" type="button" aria-label="Sulje kauppa">X</button>
           <div class="shop-cheese">
@@ -40,6 +58,11 @@
           </div>
           <canvas id="shopPreview" class="shop-preview" width="260" height="170" aria-label="Hiiri"></canvas>
           <div id="shopItems" class="shop-items" aria-label="Hatut"></div>
+        </div>
+        <div id="leaderboardPanel" class="leaderboard-panel is-hidden" role="dialog" aria-label="Tulostaulu">
+          <button id="leaderboardCloseButton" class="shop-close-button" type="button" aria-label="Sulje tulostaulu">X</button>
+          <div class="leaderboard-title">TOP 10 JUUSTOT</div>
+          <div id="leaderboardList" class="leaderboard-list" aria-label="Parhaat pelaajat"></div>
         </div>
       </div>
     </main>

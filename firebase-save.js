@@ -4,6 +4,7 @@
     ready: Promise.resolve({ enabled: false }),
     loadProgress: async () => null,
     saveProgress: async () => {},
+    loadLeaderboard: async () => [],
   };
 
   function hasFirebaseConfig(config) {
@@ -30,6 +31,18 @@
         jewelry: progress.equippedItems ? progress.equippedItems.jewelry || null : null,
       },
       savedAt: Date.now(),
+    };
+  }
+
+  function copyLeaderboard(progress) {
+    const playerName = typeof progress.playerName === "string"
+      ? progress.playerName.trim().slice(0, 18)
+      : "";
+
+    return {
+      playerName: playerName || "Pelaaja",
+      cheeseCount: Math.max(0, Math.floor(Number(progress.cheeseCount) || 0)),
+      updatedAt: window.firebase.firestore.FieldValue.serverTimestamp(),
     };
   }
 
@@ -97,6 +110,33 @@
       progress: copyProgress(progress),
       updatedAt: window.firebase.firestore.FieldValue.serverTimestamp(),
     }, { merge: true });
+
+    try {
+      await db.collection("leaderboard").doc(playerId).set(copyLeaderboard(progress), { merge: true });
+    } catch (error) {
+      console.warn("Leaderboard save failed.", error);
+    }
+  }
+
+  async function loadLeaderboard() {
+    await ready;
+    if (!playerId) {
+      return [];
+    }
+
+    const snapshot = await db.collection("leaderboard")
+      .orderBy("cheeseCount", "desc")
+      .limit(10)
+      .get();
+
+    return snapshot.docs.map((doc) => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        playerName: typeof data.playerName === "string" ? data.playerName : "Pelaaja",
+        cheeseCount: Math.max(0, Math.floor(Number(data.cheeseCount) || 0)),
+      };
+    });
   }
 
   window.catAndMouseCloudSave = {
@@ -104,5 +144,6 @@
     ready,
     loadProgress,
     saveProgress,
+    loadLeaderboard,
   };
 })();

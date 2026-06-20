@@ -8,8 +8,13 @@ const levelSelect = document.getElementById("levelSelect");
 const cheeseCount = document.getElementById("cheeseCount");
 const shopButton = document.getElementById("shopButton");
 const playShopButton = document.getElementById("playShopButton");
+const leaderboardButton = document.getElementById("leaderboardButton");
+const playLeaderboardButton = document.getElementById("playLeaderboardButton");
 const shopPanel = document.getElementById("shopPanel");
 const shopCloseButton = document.getElementById("shopCloseButton");
+const leaderboardPanel = document.getElementById("leaderboardPanel");
+const leaderboardCloseButton = document.getElementById("leaderboardCloseButton");
+const leaderboardList = document.getElementById("leaderboardList");
 const shopPreview = document.getElementById("shopPreview");
 const shopItems = document.getElementById("shopItems");
 const shopCheeseCount = document.getElementById("shopCheeseCount");
@@ -328,6 +333,7 @@ let progress = loadProgress();
 let selectedStartLevel = 0;
 let levelButtons = [];
 let showMoreShop = false;
+let leaderboardRequestId = 0;
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
@@ -464,9 +470,8 @@ async function loadCloudProgress() {
         // Local storage is optional when cloud save is available.
       }
       updateOverlayProgress();
-    } else {
-      await cloudSave.saveProgress(progress);
     }
+    await cloudSave.saveProgress(progress);
     cloudProgressLoaded = true;
   } catch (error) {
     console.warn("Cloud save could not load.", error);
@@ -501,7 +506,7 @@ function updateOverlayProgress() {
 
   renderShopItems();
   drawShopPreview();
-  updatePlayShopButton();
+  updatePlayActionButtons();
 }
 
 function buildLevelSelect() {
@@ -537,14 +542,15 @@ function openShop() {
     return;
   }
 
+  closeLeaderboard();
   updateOverlayProgress();
   if (state === "playing") {
     state = "shopping";
-    overlay.classList.add("is-shop-open");
+    overlay.classList.add("is-panel-open");
     overlay.classList.remove("is-hidden");
   }
   shopPanel.classList.remove("is-hidden");
-  updatePlayShopButton();
+  updatePlayActionButtons();
 }
 
 function closeShop() {
@@ -553,10 +559,123 @@ function closeShop() {
   }
 
   if (state === "shopping") {
-    overlay.classList.remove("is-shop-open");
+    overlay.classList.remove("is-panel-open");
     overlay.classList.add("is-hidden");
     state = "playing";
-    updatePlayShopButton();
+    updatePlayActionButtons();
+    canvas.focus();
+  }
+}
+
+function renderLeaderboardStatus(message) {
+  if (!leaderboardList) {
+    return;
+  }
+
+  leaderboardList.innerHTML = "";
+  const empty = document.createElement("div");
+  empty.className = "leaderboard-empty";
+  empty.textContent = message;
+  leaderboardList.appendChild(empty);
+}
+
+function getLocalLeaderboardEntries() {
+  if (!hasPlayerName()) {
+    return [];
+  }
+
+  return [{
+    id: "local",
+    playerName: progress.playerName,
+    cheeseCount: progress.cheeseCount,
+  }];
+}
+
+function renderLeaderboard(entries) {
+  if (!leaderboardList) {
+    return;
+  }
+
+  leaderboardList.innerHTML = "";
+  if (!entries.length) {
+    renderLeaderboardStatus("EI TULOKSIA VIELA");
+    return;
+  }
+
+  entries.forEach((entry, index) => {
+    const row = document.createElement("div");
+    row.className = "leaderboard-row";
+
+    const rank = document.createElement("div");
+    rank.className = "leaderboard-rank";
+    rank.textContent = String(index + 1);
+
+    const name = document.createElement("div");
+    name.className = "leaderboard-name";
+    name.textContent = sanitizePlayerName(entry.playerName) || "Pelaaja";
+
+    const cheese = document.createElement("div");
+    cheese.className = "leaderboard-cheese";
+    const cheeseIcon = document.createElement("span");
+    cheeseIcon.className = "cheese-mark";
+    cheeseIcon.setAttribute("aria-hidden", "true");
+    const cheeseValue = document.createElement("span");
+    cheeseValue.textContent = String(Math.max(0, Math.floor(Number(entry.cheeseCount) || 0)));
+    cheese.appendChild(cheeseIcon);
+    cheese.appendChild(cheeseValue);
+
+    row.appendChild(rank);
+    row.appendChild(name);
+    row.appendChild(cheese);
+    leaderboardList.appendChild(row);
+  });
+}
+
+async function openLeaderboard() {
+  if (!leaderboardPanel) {
+    return;
+  }
+
+  closeShop();
+  const requestId = leaderboardRequestId + 1;
+  leaderboardRequestId = requestId;
+  renderLeaderboardStatus("LADATAAN...");
+
+  if (state === "playing") {
+    state = "leaderboard";
+    overlay.classList.add("is-panel-open");
+    overlay.classList.remove("is-hidden");
+  }
+
+  leaderboardPanel.classList.remove("is-hidden");
+  updatePlayActionButtons();
+
+  try {
+    const entries = cloudSave && cloudSave.enabled && cloudSave.loadLeaderboard
+      ? await cloudSave.loadLeaderboard()
+      : getLocalLeaderboardEntries();
+    if (leaderboardRequestId === requestId) {
+      renderLeaderboard(entries);
+    }
+  } catch (error) {
+    console.warn("Leaderboard load failed.", error);
+    if (leaderboardRequestId === requestId) {
+      renderLeaderboardStatus("TULOSTAULU EI TOIMI");
+    }
+  }
+}
+
+function closeLeaderboard() {
+  leaderboardRequestId += 1;
+  if (leaderboardPanel) {
+    leaderboardPanel.classList.add("is-hidden");
+  }
+
+  if (state === "leaderboard") {
+    overlay.classList.remove("is-panel-open");
+    overlay.classList.add("is-hidden");
+    state = "playing";
+    updatePlayActionButtons();
     canvas.focus();
   }
 }
@@ -1034,25 +1153,29 @@ function startGame() {
 
   resumeAudio();
   closeShop();
+  closeLeaderboard();
   resetRun(selectedStartLevel);
   state = "playing";
-  overlay.classList.remove("is-shop-open");
+  overlay.classList.remove("is-panel-open");
   overlay.classList.add("is-hidden");
-  updatePlayShopButton();
+  updatePlayActionButtons();
   canvas.focus();
 }
 
 function showOverlay(title, buttonText) {
-  overlay.classList.remove("is-shop-open");
+  overlay.classList.remove("is-panel-open");
   overlayTitle.textContent = title;
   startButton.textContent = buttonText;
   updateOverlayProgress();
   overlay.classList.remove("is-hidden");
 }
 
-function updatePlayShopButton() {
+function updatePlayActionButtons() {
   if (playShopButton) {
     playShopButton.classList.toggle("is-hidden", state !== "playing");
+  }
+  if (playLeaderboardButton) {
+    playLeaderboardButton.classList.toggle("is-hidden", state !== "playing");
   }
 }
 
@@ -2218,7 +2341,7 @@ function update(dt) {
     updateCamera(dt);
   }
 
-  updatePlayShopButton();
+  updatePlayActionButtons();
 }
 
 function roundedRect(x, y, width, height, radius) {
@@ -5387,8 +5510,17 @@ if (shopButton) {
 if (playShopButton) {
   playShopButton.addEventListener("click", openShop);
 }
+if (leaderboardButton) {
+  leaderboardButton.addEventListener("click", openLeaderboard);
+}
+if (playLeaderboardButton) {
+  playLeaderboardButton.addEventListener("click", openLeaderboard);
+}
 if (shopCloseButton) {
   shopCloseButton.addEventListener("click", closeShop);
+}
+if (leaderboardCloseButton) {
+  leaderboardCloseButton.addEventListener("click", closeLeaderboard);
 }
 
 resizeCanvas();
