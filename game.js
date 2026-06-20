@@ -318,6 +318,9 @@ const cheese = {
   y: GROUND_Y - 28,
 };
 
+const cloudSave = window.catAndMouseCloudSave || null;
+let cloudProgressLoaded = false;
+let cloudSaveTimer = 0;
 let progress = loadProgress();
 let selectedStartLevel = 0;
 let levelButtons = [];
@@ -396,6 +399,46 @@ function saveProgress() {
     localStorage.setItem(PROGRESS_STORAGE_KEY, JSON.stringify(progress));
   } catch (error) {
     // Progress is still kept for the current session if browser storage is unavailable.
+  }
+
+  scheduleCloudProgressSave();
+}
+
+function scheduleCloudProgressSave() {
+  if (!cloudSave || !cloudSave.enabled || !cloudProgressLoaded) {
+    return;
+  }
+
+  clearTimeout(cloudSaveTimer);
+  cloudSaveTimer = window.setTimeout(() => {
+    cloudSave.saveProgress(progress).catch((error) => {
+      console.warn("Cloud save failed.", error);
+    });
+  }, 350);
+}
+
+async function loadCloudProgress() {
+  if (!cloudSave || !cloudSave.enabled) {
+    return;
+  }
+
+  try {
+    await cloudSave.ready;
+    const savedProgress = await cloudSave.loadProgress();
+    if (savedProgress) {
+      progress = normalizeProgress(savedProgress);
+      try {
+        localStorage.setItem(PROGRESS_STORAGE_KEY, JSON.stringify(progress));
+      } catch (error) {
+        // Local storage is optional when cloud save is available.
+      }
+      updateOverlayProgress();
+    } else {
+      await cloudSave.saveProgress(progress);
+    }
+    cloudProgressLoaded = true;
+  } catch (error) {
+    console.warn("Cloud save could not load.", error);
   }
 }
 
@@ -5262,6 +5305,7 @@ if (shopCloseButton) {
 
 resizeCanvas();
 buildLevelSelect();
+loadCloudProgress();
 resetRun();
 draw();
 requestAnimationFrame(frame);
