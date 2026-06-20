@@ -21,3 +21,27 @@ players/{playerId}
 ```
 
 The current game saves cheese, finished levels, owned shop items, and equipped shop items.
+
+## Test it
+
+1. Open the live game.
+2. Open the browser console.
+3. Run this:
+
+```js
+await window.catAndMouseCloudSave.ready
+```
+
+Good result:
+
+```js
+{ enabled: true, playerId: "some-long-id" }
+```
+
+If it says `CONFIGURATION_NOT_FOUND`, open Firebase Console, go to Authentication, click Get started, and enable Anonymous sign-in.
+
+After winning a level or buying a shop item, open Firestore and look for:
+
+```text
+players/{playerId}
+```
