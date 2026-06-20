@@ -2,10 +2,12 @@
 
 The game still works with local browser saves when Firebase is empty. Cloud saves start after `firebase-config.js` has your Firebase web app settings.
 
+Use **Firestore Database**, not **Storage**. Firebase Storage is for files like images, audio, and video, and it needs the paid Blaze plan. This game only needs Firestore for small save data, like cheese, levels, and shop items.
+
 1. Open Firebase Console.
 2. Create a project.
 3. Go to Authentication, Sign-in method, and enable Anonymous.
-4. Go to Firestore Database and create a database.
+4. Go to Firestore Database and create a database. Do not open Storage.
 5. Open Firestore Rules and paste the rules from `firestore.rules`.
 6. Go to Project settings, add a Web app, and copy the `firebaseConfig` values into `firebase-config.js`.
 7. Commit and push to GitHub.
